@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>消消乐小游戏</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Arial Rounded MT Bold', 'Arial', sans-serif;
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            color: white;
+        }
+        
+        .container {
+            background-color: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 100%;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .score-board {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            background-color: rgba(0, 0, 0, 0.2);
+            padding: 15px;
+            border-radius: 15px;
+        }
+        
+        .score-item {
+            text-align: center;
+        }
+        
+        .score-value {
+            font-size: 2rem;
+            font-weight: bold;
+        }
+        
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            grid-gap: 4px;
+            background-color: rgba(0, 0, 0, 0.2);
+            padding: 10px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .candy {
+            aspect-ratio: 1/1;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.2s, opacity 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        
+        .candy:hover {
+            transform: scale(1.08);
+            opacity: 0.9;
+        }
+        
+        .selected {
+            transform: scale(0.9);
+            box-shadow: 0 0 0 3px white;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+        
+        button {
+            background: linear-gradient(to right, #FF416C, #FF4B2B);
+            border: none;
+            padding: 12px 25px;
+            border-radius: 50px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+        }
+        
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .instructions {
+            margin-top: 25px;
+            text-align: center;
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 15px;
+            font-size: 0.9rem;
+        }
+        
+        @media (max-width: 500px) {
+            .container {
+                padding: 15px;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .candy {
+                font-size: 18px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🌈 消消乐</h1>
+            <p>交换相邻方块，匹配三个或更多相同颜色</p>
+        </header>
+        
+        <div class="score-board">
+            <div class="score-item">
+                <div>分数</div>
+                <div class="score-value" id="score">0</div>
+            </div>
+            <div class="score-item">
+                <div>目标</div>
+                <div class="score-value">1000</div>
+            </div>
+            <div class="score-item">
+                <div>步数</div>
+                <div class="score-value" id="moves">0</div>
+            </div>
+        </div>
+        
+        <div class="game-board" id="game-board"></div>
+        
+        <div class="controls">
+            <button id="restart">重新开始</button>
+            <button id="hint">提示</button>
+        </div>
+        
+        <div class="instructions">
+            <p>游戏玩法：点击一个方块，然后点击相邻方块进行交换。匹配三个或更多相同颜色的方块来消除它们。</p>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const gameBoard = document.getElementById('game-board');
+            const scoreDisplay = document.getElementById('score');
+            const movesDisplay = document.getElementById('moves');
+            const restartButton = document.getElementById('restart');
+            const hintButton = document.getElementById('hint');
+            
+            let board = [];
+            let score = 0;
+            let moves = 0;
+            let selectedCandy = null;
+            const boardSize = 8;
+            const colors = ['#FF5252', '#FF4081', '#E040FB', '#7C4DFF', '#536DFE', '#448AFF'];
+            const emojis = ['🍎', '🍊', '🍋', '🍇', '🍓', '🍉'];
+            
+            // 初始化游戏
+            function initGame() {
+                board = [];
+                score = 0;
+                moves = 0;
+                scoreDisplay.textContent = '0';
+                movesDisplay.textContent = '0';
+                gameBoard.innerHTML = '';
+                
+                // 创建初始棋盘
+                for (let row = 0; row < boardSize; row++) {
+                    board[row] = [];
+                    for (let col = 0; col < boardSize; col++) {
+                        const randomColor = Math.floor(Math.random() * colors.length);
+                        board[row][col] = randomColor;
+                        
+                        const candy = createCandy(row, col, randomColor);
+                        gameBoard.appendChild(candy);
+                    }
+                }
+                
+                // 检查初始匹配
+                setTimeout(() => {
+                    checkMatches();
+                }, 300);
+            }
+            
+            // 创建糖果元素
+            function createCandy(row, col, colorIndex) {
+                const candy = document.createElement('div');
+                candy.className = 'candy';
+                candy.style.backgroundColor = colors[colorIndex];
+                candy.dataset.row = row;
+                candy.dataset.col = col;
+                candy.textContent = emojis[colorIndex];
+                
+                candy.addEventListener('click', () => {
+                    if (selectedCandy === null) {
+                        // 选择第一个糖果
+                        selectedCandy = candy;
+                        candy.classList.add('selected');
+                    } else {
+                        // 选择第二个糖果
+                        const firstRow = parseInt(selectedCandy.dataset.row);
+                        const firstCol = parseInt(selectedCandy.dataset.col);
+                        const secondRow = parseInt(candy.dataset.row);
+                        const secondCol = parseInt(candy.dataset.col);
+                        
+                        // 检查是否相邻
+                        if (areAdjacent(firstRow, firstCol, secondRow, secondCol)) {
+                            selectedCandy.classList.remove('selected');
+                            swapCandies(firstRow, firstCol, secondRow, secondCol);
+                            moves++;
+                            movesDisplay.textContent = moves;
+                            selectedCandy = null;
+                        } else {
+                            selectedCandy.classList.remove('selected');
+                            selectedCandy = candy;
+                            candy.classList.add('selected');
+                        }
+                    }
+                });
+                
+                return candy;
+            }
+            
+            // 检查两个糖果是否相邻
+            function areAdjacent(row1, col1, row2, col2) {
+                return (
+                    (Math.abs(row1 - row2) === 1 && col1 === col2) ||
+                    (Math.abs(col1 - col2) === 1 && row1 === row2)
+                );
+            }
+            
+            // 交换两个糖果
+            function swapCandies(row1, col1, row2, col2) {
+                // 交换数组中的数据
+                const temp = board[row1][col1];
+                board[row1][col1] = board[row2][col2];
+                board[row2][col2] = temp;
+                
+                // 更新UI
+                updateBoard();
+                
+                // 检查匹配
+                setTimeout(() => {
+                    if (!checkMatches()) {
+                        // 如果没有匹配，交换回来
+                        const temp = board[row1][col1];
+                        board[row1][col1] = board[row2][col2];
+                        board[row2][col2] = temp;
+                        updateBoard();
+                    }
+                }, 300);
+            }
+            
+            // 更新棋盘显示
+            function updateBoard() {
+                for (let row = 0; row < boardSize; row++) {
+                    for (let col = 0; col < boardSize; col++) {
+                        const candy = gameBoard.children[row * boardSize + col];
+                        candy.style.backgroundColor = colors[board[row][col]];
+                        candy.textContent = emojis[board[row][col]];
+                    }
+                }
+            }
+            
+            // 检查匹配并消除
+            function checkMatches() {
+                let hasMatches = false;
+                
+                // 检查水平匹配
+                for (let row = 0; row < boardSize; row++) {
+                    for (let col = 0; col < boardSize - 2; col++) {
+                        if (board[row][col] !== -1 &&
+                            board[row][col] === board[row][col + 1] &&
+                            board[row][col] === board[row][col + 2]) {
+                            
+                            // 标记匹配的糖果
+                            let matchLength = 3;
+                            while (col + matchLength < boardSize && 
+                                   board[row][col] === board[row][col + matchLength]) {
+                                matchLength++;
+                            }
+                            
+                            // 消除匹配的糖果
+                            for (let i = 0; i < matchLength; i++) {
+                                board[row][col + i] = -1;
+                            }
+                            
+                            // 增加分数
+                            score += matchLength * 10;
+                            scoreDisplay.textContent = score;
+                            hasMatches = true;
+                            
+                            // 跳过已匹配的糖果
+                            col += matchLength - 1;
+                        }
+                    }
+                }
+                
+                // 检查垂直匹配
+                for (let col = 0; col < boardSize; col++) {
+                    for (let row = 0; row < boardSize - 2; row++) {
+                        if (board[row][col] !== -1 &&
+                            board[row][col] === board[row + 1][col] &&
+                            board[row][col] === board[row + 2][col]) {
+                            
+                            // 标记匹配的糖果
+                            let matchLength = 3;
+                            while (row + matchLength < boardSize && 
+                                   board[row][col] === board[row + matchLength][col]) {
+                                matchLength++;
+                            }
+                            
+                            // 消除匹配的糖果
+                            for (let i = 0; i < matchLength; i++) {
+                                board[row + i][col] = -1;
+                            }
+                            
+                            // 增加分数
+                            score += matchLength * 10;
+                            scoreDisplay.textContent = score;
+                            hasMatches = true;
+                            
+                            // 跳过已匹配的糖果
+                            row += matchLength - 1;
+                        }
+                    }
+                }
+                
+                // 如果有匹配，下落糖果并补充新的
+                if (hasMatches) {
+                    dropCandies();
+                    return true;
+                }
+                
+                return false;
+            }
+            
+            // 糖果下落并补充新的
+            function dropCandies() {
+                // 下落现有的糖果
+                for (let col = 0; col < boardSize; col++) {
+                    let emptySpaces = 0;
+                    
+                    for (let row = boardSize - 1; row >= 0; row--) {
+                        if (board[row][col] === -1) {
+                            emptySpaces++;
+                        } else if (emptySpaces > 0) {
+                            board[row + emptySpaces][col] = board[row][col];
+                            board[row][col] = -1;
+                        }
+                    }
+                    
+                    // 在顶部补充新的糖果
+                    for (let row = 0; row < emptySpaces; row++) {
+                        board[row][col] = Math.floor(Math.random() * colors.length);
+                    }
+                }
+                
+                // 更新UI
+                updateBoard();
+                
+                // 检查是否有新的匹配
+                setTimeout(() => {
+                    if (checkMatches()) {
+                        // 如果有新的匹配，继续处理
+                    } else if (score >= 1000) {
+                        setTimeout(() => {
+                            alert('恭喜！你赢了！得分：' + score);
+                        }, 500);
+                    }
+                }, 500);
+            }
+            
+            // 提示功能
+            function giveHint() {
+                // 简化版的提示功能 - 在实际游戏中需要实现更复杂的算法
+                alert('尝试交换相邻的方块来创建三个或更多相同颜色的水平或垂直连线！');
+            }
+            
+            // 事件监听
+            restartButton.addEventListener('click', initGame);
+            hintButton.addEventListener('click', giveHint);
+            
+            // 初始化游戏
+            initGame();
+        });
+    </script>
+</body>
+</html>
